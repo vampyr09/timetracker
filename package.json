@@ -1,0 +1,24 @@
+{
+    "author": "vampyr09@googlemail.com",
+    "dependencies": {},
+    "keywords": [],
+    "name": "timetracker",
+    "pebble": {
+        "displayName": "timetracker",
+        "enableMultiJS": false,
+        "messageKeys": [],
+        "projectType": "native",
+        "resources": {
+            "media": []
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "diorite"
+        ],
+        "uuid": "2f6d4cda-e879-4433-b764-30db06e43e5c",
+        "watchapp": {
+            "watchface": false
+        }
+    },
+    "version": "1.0.0"
+}
