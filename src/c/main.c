@@ -163,6 +163,9 @@ static void addTask(uint32_t index, char *title) {
   persist_write_string(index, copyOfTitle);
 }
 
+/**
+ * Clears the complete data store of the pebble.
+ */
 static void clearAll() {
   APP_LOG(APP_LOG_LEVEL_ERROR, "Clear all!");
   
@@ -179,6 +182,9 @@ static void clearAll() {
   createMenu();
 }
 
+/**
+ * Clear all stored measurments.
+ */
 static void clearMeasurements() {
   for(uint32_t key = MEASUREMENTS_START_ID; key < MEASUREMENTS_END_ID; key++) {
     if (persist_exists(key)) {
@@ -187,6 +193,11 @@ static void clearMeasurements() {
   }
 }
 
+/**
+ * Receiving all tasks from the android application.
+ * First clears all existing tasks, then going throw all receiving tuples and adding the new tasks,
+ * then creating the menu.
+ */
 static void receiveTasks(DictionaryIterator *iterator, void *context) {
   APP_LOG(APP_LOG_LEVEL_ERROR, "Message received!");
    
@@ -233,13 +244,13 @@ static void showText(const char* text) {
   
   selectedTaskLayer = text_layer_create(bounds);
   
-  //char *display = malloc(sizeof(text));
-  //strcpy(display, text);
-  
   text_layer_set_text(selectedTaskLayer, text);
   layer_add_child(window_layer, text_layer_get_layer(selectedTaskLayer));
 }
 
+/**
+ * The tick handler is updated every minute and displays the current date time of the current task.
+ */
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   if (selected) {  
     Layer *window_layer = window_get_root_layer(window);
@@ -250,6 +261,7 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
     int diff = difftime(time(NULL), selectionTime);
       
     char diffChar[20];
+    /* %02d means to show the first 2 digits of the double value and start with a 0 if it is below 9. */
     snprintf(diffChar, sizeof(diffChar), "%02d:%02d", diff/3600, (diff/60) % 60);
     
     char *copyDiff = malloc(sizeof(diffChar));
@@ -260,10 +272,20 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   }
 }
 
+/**
+ * Display the current task title.
+ */
 static void showSelectedTask() {
   showText(selectedTaskItem.title);
 }
 
+/** 
+ * Sends all persistent measurements to the android application.
+ * The id ranges are defined between MEASUREMENTS_START_ID and MEASUREMENTS_END_ID.
+ * The format in which measurements are sent is not in json, but is a concatenated String in the following format:
+ * The initialization String is "Sync;" and for each measurement it concatenates the title, startdatetime and enddatetime 
+ * in the following scheme: "Title # Startdatetime # Enddatetime". Measurements are seperated with a comma (,).
+ */
 static void sendMeasurements() {
   DictionaryIterator *iter;
   app_message_outbox_begin(&iter);
@@ -328,6 +350,9 @@ static void sendMeasurements() {
   //free measurements!
 }
 
+/**
+ * Update the last measurements end date time.
+ */
 static void endTracking() {
   if (persist_exists(LAST_MEASUREMENT_ID_ID)) {
     uint32_t lastMeasurementId = persist_read_int(LAST_MEASUREMENT_ID_ID);
@@ -352,7 +377,7 @@ static void action_performed_callback(ActionMenu *actionMenu, const ActionMenuIt
   switch (selectionAction) {
     case StartTracking:
       APP_LOG(APP_LOG_LEVEL_DEBUG, "Start tracking triggered for: %s", selectedTaskItem.title);
-      //showSelectedTask();
+      showSelectedTask();
       time(&selectionTime);
       storeMeasurement(selectedTaskItem, &selectionTime);
       selected = true;
@@ -380,34 +405,34 @@ static void action_performed_callback(ActionMenu *actionMenu, const ActionMenuIt
   APP_LOG(APP_LOG_LEVEL_DEBUG, "Action performed.");
 }
 
-static void storePredefined() {
-  
-  if (persist_exists(0)) {
-    APP_LOG(APP_LOG_LEVEL_ERROR, "Predefined tasks already inside of the database!");
-    return;
+/**
+ * The health handler should be used to show a different action menu when the user did stand up from its table.
+ * For software developers this usually means: Some interruption of the recent task to ask about conceptions, take a coffee, ...
+ */
+static void health_handler(HealthEventType event, void *context) {
+  if (event == HealthEventMovementUpdate) {
+    vibes_short_pulse();
   }
-  APP_LOG(APP_LOG_LEVEL_INFO, "Initializing predefined task!");
-  
-  char *taskTitle = "Task 1";
-  addTask(0, taskTitle);
-  
-  addTask(1, "Task 2");
-  
-  addTask(2, "Task 3");
 }
 
 void handle_init(void) {
+  /* Register the health handler callback. */
+  health_service_events_subscribe(health_handler, NULL);
+  
+  /* Receive tasks from the android application and store them inside of the database */
   app_message_register_inbox_received(receiveTasks);
-
   app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
   
-  //storePredefined();
   window = window_create();
   window_stack_push(window, true);
 
+  /* Init and create the action menu. */
   initActionMenu();  
   createMenu();
   
+  /* Register a tick handler to update the current working time on the current measurement.
+   * The measurement with time is shown at the top of the pebble window. 
+   */
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
 }
 

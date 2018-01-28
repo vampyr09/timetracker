@@ -4,6 +4,9 @@
     "keywords": [],
     "name": "timetracker",
     "pebble": {
+        "capabilities": [
+            "health"
+        ],
         "displayName": "timetracker",
         "enableMultiJS": false,
         "messageKeys": [],
